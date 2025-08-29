@@ -1,0 +1,43 @@
+name: 🚀 Deploy to VPS
+
+on:
+  push:
+    branches:
+      - dev # Adjust if your default branch is different
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🔐 Execute remote SSH commands
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          script: |
+            echo "Stopping existing container (if any)..."
+            docker stop ml_dev_container || true
+
+            echo "Removing existing container (if any)..."
+            docker rm ml_dev_container || true
+
+            echo "Pruning unused Docker images..."
+            docker image prune -af
+
+            echo "Logging into GitHub Container Registry..."
+            echo "${{ secrets.PAT_TOKEN }}" | docker login ghcr.io -u ${{ secrets.GIT_USERNAME}} --password-stdin
+
+            echo "Pulling latest Docker image..."
+            docker pull ghcr.io/harinis7102004/gen:latest
+
+            echo "Running new Docker container..."
+            docker run -d \
+              --name ml_dev_container \
+              -p 8080:8080 \
+              ghcr.io/harinis7102004/gen:latest

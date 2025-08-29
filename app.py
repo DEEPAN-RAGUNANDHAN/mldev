@@ -168,7 +168,7 @@ async def generate_resume(
         request_queue.join()
 
         if "error" in result:
-            raise HTTPException(status_code=500, detail=result["error"])
+            raise HTTPException(status_code=500, processdetail=result["error"])
         
         try:
             filtered_data = json.loads(result["content"])

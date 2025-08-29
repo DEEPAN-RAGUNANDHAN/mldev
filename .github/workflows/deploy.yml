@@ -34,10 +34,10 @@ jobs:
             echo "${{ secrets.PAT_TOKEN }}" | docker login ghcr.io -u ${{ secrets.GIT_USERNAME}} --password-stdin
 
             echo "Pulling latest Docker image..."
-            docker pull ghcr.io/harinis7102004/gen:latest
+            docker pull ghcr.io/deepan-ragunandhan/mldev:latest
 
             echo "Running new Docker container..."
             docker run -d \
               --name ml_dev_container \
               -p 8080:8080 \
-              ghcr.io/harinis7102004/gen:latest
+              ghcr.io/deepan-ragunandhan/mldev:latest

@@ -15,7 +15,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 #from extraction.resume_data_extraction import ResumeExtractor
-from extraction.resume_data_extraction import TogetherResumeParser
+from extraction.resume_data_extraction import OpenAIResumeParser
 from extraction.web_extractor import extract_page_text
 import tempfile
 import threading
@@ -193,7 +193,7 @@ async def parse_resume_endpoint(
     Returns: JSON with parsed resume data
     """
     #resume_parser = ResumeExtractor()
-    resume_parser = TogetherResumeParser()
+    resume_parser = OpenAIResumeParser()
     if not resume_parser:
         raise HTTPException(status_code=500, detail="Resume parser not initialized")
     

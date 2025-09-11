@@ -272,3 +272,90 @@ async def generate_guide_endpoint(request: Request, _: None = Depends(verify_tok
 
     final_output = change_json(json_guide)
     return JSONResponse(content=jsonable_encoder(final_output))
+# ============================================================
+# ------------------- COVERLETTER WITH MATCH -----------------
+# ============================================================
+
+@app.post("/m2/generate/coverletter-match")
+async def generate_coverletter_with_match(request: Request, _: None = Depends(verify_token)):
+    """
+    Generate a cover letter AND compute a match score between user details and job description.
+    """
+    data = await request.json()
+    prompt_content = build_cover_letter_prompt(data)
+    result = {}
+
+    # ---------------- AI Cover Letter ----------------
+    def task():
+        try:
+            result["content"] = generate_text(prompt_content, OPENAI_API_KEY)
+        except Exception as e:
+            result["error"] = str(e)
+
+    request_queue.put((task, []))
+    request_queue.join()
+
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+
+    paragraphs = result["content"].split("\n\n")
+    data["paragraphs"] = paragraphs
+    final_data = format_data(data)
+
+    # ---------------- Match Score ----------------
+    try:
+        # Collect text from user details
+        user_text = " ".join([
+            " ".join(data["user_details"].get("skills", [])),
+            " ".join(data["user_details"].get("tools", [])),
+            " ".join(data["user_details"].get("experience_summary", [])),
+            " ".join(data["user_details"].get("education", []))
+        ]).lower()
+
+        # Collect text from job description
+        job_text = " ".join([
+            " ".join(data["job_description"].get("responsibilities", [])),
+            " ".join(data["job_description"].get("qualifications", [])),
+            " ".join(data["job_description"].get("skills", []))
+        ]).lower()
+
+        # Word overlap scoring
+        user_words = set(user_text.split())
+        job_words = set(job_text.split())
+        overlap = user_words.intersection(job_words)
+
+        if len(job_words) > 0:
+            match_score = round(len(overlap) / len(job_words) * 100, 2)
+        else:
+            match_score = 0.0
+    except Exception as e:
+        match_score = 0.0
+        logger.error(f"Error computing match score: {e}")
+
+    # ---------------- Optional Translation ----------------
+    if data["cl_data"]["language"].lower() != "english":
+        level = data["cl_data"].get("level", "B1")
+        prompt = translate_prompt(final_data, data["cl_data"]["language"], level)
+
+        def task():
+            try:
+                result["content"] = generate_text(prompt, OPENAI_API_KEY)
+            except Exception as e:
+                result["error"] = str(e)
+
+        request_queue.put((task, []))
+        request_queue.join()
+
+        try:
+            final_data = json.loads(result["content"])
+        except:
+            return JSONResponse(
+                status_code=500,
+                content={"error": "Translation failed", "raw": result["content"]}
+            )
+
+    # ---------------- Response ----------------
+    return JSONResponse({
+        "cover_letter": final_data,
+        "match_score": match_score
+    })

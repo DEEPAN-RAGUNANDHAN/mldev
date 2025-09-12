@@ -293,12 +293,12 @@ def calculate_match_score(user_details, job_description):
     job_words = set(job_text.lower().replace(",", "").split())
 
     if not job_words:
-        return 0
-
-    # Overlap ratio
+        return 50 
     overlap = user_words.intersection(job_words)
-    score = int((len(overlap) / len(job_words)) * 100)
-    return score
+    raw_score = (len(overlap) / len(job_words)) * 100
+    normalized_score = 50 + int((raw_score / 100) * 15)
+    return max(50, min(65, normalized_score))
+
 
 @app.post("/m2/generate/coverletter-match")
 async def generate_coverletter_match(request: Request, _: None = Depends(verify_token)):

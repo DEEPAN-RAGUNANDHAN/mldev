@@ -293,24 +293,80 @@ def calculate_match_score(user_details, job_description):
     job_words = set(job_text.lower().replace(",", "").split())
 
     if not job_words:
-        return 50 
+        return 0
+
+    # Overlap ratio
     overlap = user_words.intersection(job_words)
-    raw_score = (len(overlap) / len(job_words)) * 100
-    normalized_score = 50 + int((raw_score / 100) * 15)
-    return max(50, min(65, normalized_score))
+    score = int((len(overlap) / len(job_words)) * 100)
 
+    # Force score range between 50–65
+    if score < 50:
+        score = 50
+    elif score > 65:
+        score = 65
 
-@app.post("/m2/generate/coverletter-match")
-async def generate_coverletter_match(request: Request, _: None = Depends(verify_token)):
-    data = await request.json()
+    return score
+# ============================================================
+# ------------------- EXTERNAL JOB API -----------------------
+# ============================================================
+class ExternalJobRequest(BaseModel):
+    user_details: dict
+    job_description: dict
+    cl_data: dict = {}
 
-    user_details = data.get("user_details", {})
-    job_description = data.get("job_description", {})
+@app.post("/external/job-api")
+async def external_job_api(req: ExternalJobRequest, _: None = Depends(verify_token)):
+    try:
+        job_desc = req.job_description
+        desc_lower = job_desc.get("description", "").lower()
 
-    if not user_details or not job_description:
-        raise HTTPException(status_code=400, detail="Both user_details and job_description are required")
+        # Detect job type
+        if "full-time" in desc_lower:
+            job_type = "Full-time"
+        elif "part-time" in desc_lower:
+            job_type = "Part-time"
+        elif "intern" in desc_lower:
+            job_type = "Internship"
+        else:
+            job_type = "Other"
 
-    # Calculate match score
-    match_score = calculate_match_score(user_details, job_description)
+        # Detect skills
+        skills_detected = []
+        for skill in ["python", "sql", "java", "c++", "javascript", "cloud", "machine learning"]:
+            if skill in desc_lower:
+                skills_detected.append(skill.capitalize())
+        skills = ", ".join(skills_detected) if skills_detected else "General Skills"
 
-    return JSONResponse(content={"match_score": match_score})
+        # Detect language
+        job_language = "English" if "english" in desc_lower else "Unknown"
+
+        # Build Job object
+        job = {
+            "job_id": job_desc.get("job_id", "external-1"),
+            "title": job_desc.get("job_title", ""),
+            "company": job_desc.get("company", ""),
+            "location": job_desc.get("location", "Unknown"),
+            "posted_date": datetime.today().strftime("%Y-%m-%d"),
+            "link": job_desc.get("link", ""),
+            "processed": True,
+            "source": "External API",
+            "job_description": job_desc.get("description", ""),
+            "job_type": job_type,
+            "skills": skills,
+            "job_link": job_desc.get("link", ""),
+            "selected_count": 0,
+            "job_language": job_language,
+            "job_title": job_desc.get("job_title", "")
+        }
+
+        # ✅ Calculate match score
+        match_score = calculate_match_score(req.user_details, job_desc)
+
+        return JSONResponse(content={
+            "job": job,
+            "match_score": match_score
+        })
+
+    except Exception as e:
+        logger.error(f"Error in external job api: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")

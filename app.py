@@ -309,10 +309,40 @@ def calculate_match_score(user_details, job_description):
 # ============================================================
 # ------------------- EXTERNAL JOB API -----------------------
 # ============================================================
+
+from pydantic import BaseModel
+from typing import List, Optional
+
 class ExternalJobRequest(BaseModel):
     user_details: dict
     job_description: dict
-    cl_data: dict = {}
+    cl_data: Optional[dict] = None
+
+def calculate_match_score(user_details, job_description):
+    # Collect user info
+    user_text = " ".join(user_details.get("skills", []) +
+                         user_details.get("tools", []) +
+                         user_details.get("experience_summary", []) +
+                         user_details.get("education", []))
+
+    # Collect job info
+    job_text = " ".join(job_description.get("skills", []) +
+                        job_description.get("qualifications", []) +
+                        job_description.get("responsibilities", []))
+
+    # Normalize words
+    user_words = set(user_text.lower().replace(",", "").split())
+    job_words = set(job_text.lower().replace(",", "").split())
+
+    if not job_words:
+        return 0
+
+    overlap = user_words.intersection(job_words)
+    score = int((len(overlap) / len(job_words)) * 100)
+
+    # Optional: keep score in range 50–65 if required
+    score = max(50, min(score, 65))
+    return score
 
 @app.post("/external/job-api")
 async def external_job_api(req: ExternalJobRequest, _: None = Depends(verify_token)):
@@ -330,43 +360,36 @@ async def external_job_api(req: ExternalJobRequest, _: None = Depends(verify_tok
         else:
             job_type = "Other"
 
-        # Detect skills
-        skills_detected = []
-        for skill in ["python", "sql", "java", "c++", "javascript", "cloud", "machine learning"]:
-            if skill in desc_lower:
-                skills_detected.append(skill.capitalize())
-        skills = ", ".join(skills_detected) if skills_detected else "General Skills"
-
         # Detect language
         job_language = "English" if "english" in desc_lower else "Unknown"
 
         # Build Job object
-        job = {
-            "job_id": job_desc.get("job_id", "external-1"),
-            "title": job_desc.get("job_title", ""),
-            "company": job_desc.get("company", ""),
-            "location": job_desc.get("location", "Unknown"),
-            "posted_date": datetime.today().strftime("%Y-%m-%d"),
-            "link": job_desc.get("link", ""),
-            "processed": True,
-            "source": "External API",
-            "job_description": job_desc.get("description", ""),
-            "job_type": job_type,
-            "skills": skills,
-            "job_link": job_desc.get("link", ""),
-            "selected_count": 0,
-            "job_language": job_language,
-            "job_title": job_desc.get("job_title", "")
-        }
+        job = Job(
+            job_id=job_desc.get("job_id", "N/A"),
+            title=job_desc.get("job_title", "Unknown"),
+            company=job_desc.get("company", "Unknown"),
+            location=job_desc.get("location", "Unknown"),
+            posted_date=datetime.today().strftime("%Y-%m-%d"),
+            link=job_desc.get("link", ""),
+            processed=True,
+            source="External API",
+            job_description=job_desc.get("description", ""),
+            job_type=job_type,
+            skills=", ".join(job_desc.get("skills", [])) if job_desc.get("skills") else "General Skills",
+            job_link=job_desc.get("link", ""),
+            selected_count=0,
+            job_language=job_language,
+            job_title=job_desc.get("job_title", "Unknown")
+        )
 
-        # ✅ Calculate match score
+        # Calculate match score
         match_score = calculate_match_score(req.user_details, job_desc)
 
         return JSONResponse(content={
-            "job": job,
+            "job": job.dict(),
             "match_score": match_score
         })
 
     except Exception as e:
-        logger.error(f"Error in external job api: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+        logger.error(f"Error in external_job_api: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to process external job API")

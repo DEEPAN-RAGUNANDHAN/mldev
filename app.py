@@ -313,9 +313,4 @@ async def generate_coverletter_match(request: Request, _: None = Depends(verify_
     # Calculate match score
     match_score = calculate_match_score(user_details, job_description)
 
-    return JSONResponse(content={
-        "user": user_details.get("name", "Unknown"),
-        "job_title": job_description.get("job_title", "Unknown"),
-        "company": job_description.get("company", "Unknown"),
-        "match_score": match_score
-    })
+    return JSONResponse(content={"match_score": match_score})

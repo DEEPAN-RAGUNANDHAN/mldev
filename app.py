@@ -64,14 +64,21 @@ threading.Thread(target=worker, daemon=True).start()
 # ------------------- JOB PARSE ------------------------------
 # ============================================================
 
+from typing import Union, List
+from fastapi import Header, HTTPException
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from datetime import datetime
+
+# ---------- INPUT STRUCT ----------
 class JobRequest(BaseModel):
-    job_id: str
-    company: str
-    job_title: str
-    link: str
-    description: str
+    job_id: Union[str, int]              # allow string or number
+    company: Union[str, dict]            # handle dict or str
+    job_title: Union[str, dict]
+    link: Union[str, dict]
+    description: Union[str, dict]        # sometimes dict input
 
-
+# ---------- OUTPUT STRUCT ----------
 class Job(BaseModel):
     job_id: str
     title: str
@@ -90,7 +97,7 @@ class Job(BaseModel):
     job_title: str
 
 
-@app.post("/m2/job/parse")   # ✅ fixed with leading slash
+@app.post("/m2/job/parse")   # ✅ fixed endpoint
 async def parse_job(req: JobRequest, authorization: str = Header(...)):
     # Auth
     if not authorization.startswith("Bearer "):
@@ -100,7 +107,14 @@ async def parse_job(req: JobRequest, authorization: str = Header(...)):
         raise HTTPException(status_code=403, detail="Forbidden: Invalid API Key")
 
     try:
-        desc_lower = req.description.lower()
+        # ✅ Ensure fields are strings
+        job_id = str(req.job_id)
+        company = req.company if isinstance(req.company, str) else json.dumps(req.company)
+        job_title = req.job_title if isinstance(req.job_title, str) else json.dumps(req.job_title)
+        link = req.link if isinstance(req.link, str) else json.dumps(req.link)
+        description = req.description if isinstance(req.description, str) else json.dumps(req.description)
+
+        desc_lower = description.lower()
 
         # Detect job type
         if "full-time" in desc_lower:
@@ -124,27 +138,28 @@ async def parse_job(req: JobRequest, authorization: str = Header(...)):
 
         # Build Response
         job = Job(
-            job_id=req.job_id,
-            title=req.job_title,
-            company=req.company,
+            job_id=job_id,
+            title=job_title,
+            company=company,
             location="Unknown",
             posted_date=datetime.today().strftime("%Y-%m-%d"),
-            link=req.link,
+            link=link,
             processed=True,
             source="API",
-            job_description=req.description,
+            job_description=description,
             job_type=job_type,
             skills=skills,
-            job_link=req.link,
+            job_link=link,
             selected_count=0,
             job_language=job_language,
-            job_title=req.job_title
+            job_title=job_title
         )
         return JSONResponse(content=job.dict())
 
     except Exception as e:
         logger.error(f"🔥 ERROR in parse_job: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
+
 
 
 # ============================================================

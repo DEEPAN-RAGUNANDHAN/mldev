@@ -87,7 +87,7 @@ class Job(BaseModel):
     job_language: str
     job_title: str
 
-@app.post("/job/parse")
+@app.post("/m2/job/parse")
 async def parse_job(req: JobRequest, authorization: str = Header(...)):
     # Auth
     if not authorization.startswith("Bearer "):

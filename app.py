@@ -281,35 +281,36 @@ async def generate_guide_endpoint(request: Request, _: None = Depends(verify_tok
 
 def calculate_match_score(user_details, job_description):
     try:
-        # Validate user fields
+        # Validate user fields (but default missing ones to empty list instead of raising)
         required_user_fields = ["skills", "tools", "experience_summary", "education"]
         for field in required_user_fields:
             if field not in user_details:
-                raise HTTPException(status_code=400, detail=f"Missing field in user_details: {field}")
-
-        # Validate job fields
-        required_job_fields = ["skills", "qualifications", "responsibilities"]
-        if not any(job_description.get(field) for field in required_job_fields):
-            raise HTTPException(status_code=400,
-                                detail="Job description must include at least one of: skills, qualifications, responsibilities")
+                user_details[field] = []
 
         # Collect user info
-        user_text = " ".join(user_details.get("skills", []) +
-                             user_details.get("tools", []) +
-                             user_details.get("experience_summary", []) +
-                             user_details.get("education", []))
+        user_text = " ".join(
+            user_details.get("skills", []) +
+            user_details.get("tools", []) +
+            user_details.get("experience_summary", []) +
+            user_details.get("education", [])
+        )
 
-        # Collect job info
-        job_text = " ".join(job_description.get("skills", []) +
-                            job_description.get("qualifications", []) +
-                            job_description.get("responsibilities", []))
+        # Collect job info - fallback to description if all three are empty
+        job_text = " ".join(
+            job_description.get("skills", []) +
+            job_description.get("qualifications", []) +
+            job_description.get("responsibilities", [])
+        )
+        if not job_text.strip():
+            job_text = job_description.get("description", "")
 
         # Normalize words
         user_words = set(user_text.lower().replace(",", "").split())
         job_words = set(job_text.lower().replace(",", "").split())
 
         if not job_words:
-            raise HTTPException(status_code=400, detail="Job description word set is empty")
+            logger.warning("No job words found; returning base score 50")
+            return 50  # fallback default score
 
         overlap = user_words.intersection(job_words)
         score = int((len(overlap) / len(job_words)) * 100)
@@ -318,11 +319,10 @@ def calculate_match_score(user_details, job_description):
         score = max(50, min(score, 65))
         return score
 
-    except HTTPException as http_err:
-        raise http_err
     except Exception as e:
         logger.error(f"Error in calculate_match_score: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error calculating match score: {str(e)}")
+        return 50  # fallback safe score
+
 
 
 # ============================================================

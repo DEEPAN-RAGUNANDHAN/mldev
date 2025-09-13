@@ -277,78 +277,78 @@ async def generate_guide_endpoint(request: Request, _: None = Depends(verify_tok
 # ============================================================
 
 def calculate_match_score(user_details, job_description):
-    # Collect user info
-    user_text = " ".join(user_details.get("skills", []) +
-                         user_details.get("tools", []) +
-                         user_details.get("experience_summary", []) +
-                         user_details.get("education", []))
+    try:
+        # Validate user fields
+        required_user_fields = ["skills", "tools", "experience_summary", "education"]
+        for field in required_user_fields:
+            if field not in user_details:
+                raise HTTPException(status_code=400, detail=f"Missing field in user_details: {field}")
 
-    # Collect job info
-    job_text = " ".join(job_description.get("skills", []) +
-                        job_description.get("qualifications", []) +
-                        job_description.get("responsibilities", []))
+        # Validate job fields
+        required_job_fields = ["skills", "qualifications", "responsibilities"]
+        if not any(job_description.get(field) for field in required_job_fields):
+            raise HTTPException(status_code=400,
+                                detail="Job description must include at least one of: skills, qualifications, responsibilities")
 
-    # Normalize words
-    user_words = set(user_text.lower().replace(",", "").split())
-    job_words = set(job_text.lower().replace(",", "").split())
+        # Collect user info
+        user_text = " ".join(user_details.get("skills", []) +
+                             user_details.get("tools", []) +
+                             user_details.get("experience_summary", []) +
+                             user_details.get("education", []))
 
-    if not job_words:
-        return 0
+        # Collect job info
+        job_text = " ".join(job_description.get("skills", []) +
+                            job_description.get("qualifications", []) +
+                            job_description.get("responsibilities", []))
 
-    # Overlap ratio
-    overlap = user_words.intersection(job_words)
-    score = int((len(overlap) / len(job_words)) * 100)
+        # Normalize words
+        user_words = set(user_text.lower().replace(",", "").split())
+        job_words = set(job_text.lower().replace(",", "").split())
 
-    # Force score range between 50–65
-    if score < 50:
-        score = 50
-    elif score > 65:
-        score = 65
+        if not job_words:
+            raise HTTPException(status_code=400, detail="Job description word set is empty")
 
-    return score
+        overlap = user_words.intersection(job_words)
+        score = int((len(overlap) / len(job_words)) * 100)
+
+        # Force score range 50–65
+        score = max(50, min(score, 65))
+        return score
+
+    except HTTPException as http_err:
+        raise http_err
+    except Exception as e:
+        logger.error(f"Error in calculate_match_score: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error calculating match score: {str(e)}")
+
+
 # ============================================================
 # ------------------- EXTERNAL JOB API -----------------------
 # ============================================================
 
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Optional
 
 class ExternalJobRequest(BaseModel):
     user_details: dict
     job_description: dict
     cl_data: Optional[dict] = None
 
-def calculate_match_score(user_details, job_description):
-    # Collect user info
-    user_text = " ".join(user_details.get("skills", []) +
-                         user_details.get("tools", []) +
-                         user_details.get("experience_summary", []) +
-                         user_details.get("education", []))
-
-    # Collect job info
-    job_text = " ".join(job_description.get("skills", []) +
-                        job_description.get("qualifications", []) +
-                        job_description.get("responsibilities", []))
-
-    # Normalize words
-    user_words = set(user_text.lower().replace(",", "").split())
-    job_words = set(job_text.lower().replace(",", "").split())
-
-    if not job_words:
-        return 0
-
-    overlap = user_words.intersection(job_words)
-    score = int((len(overlap) / len(job_words)) * 100)
-
-    # Optional: keep score in range 50–65 if required
-    score = max(50, min(score, 65))
-    return score
 
 @app.post("/external/job-api")
 async def external_job_api(req: ExternalJobRequest, _: None = Depends(verify_token)):
     try:
+        # Validate top-level fields
+        if not req.user_details:
+            raise HTTPException(status_code=400, detail="Missing user_details")
+        if not req.job_description:
+            raise HTTPException(status_code=400, detail="Missing job_description")
+
         job_desc = req.job_description
-        desc_lower = job_desc.get("description", "").lower()
+        if "description" not in job_desc or not job_desc["description"]:
+            raise HTTPException(status_code=400, detail="Missing or empty job_description.description")
+
+        desc_lower = job_desc["description"].lower()
 
         # Detect job type
         if "full-time" in desc_lower:
@@ -363,24 +363,27 @@ async def external_job_api(req: ExternalJobRequest, _: None = Depends(verify_tok
         # Detect language
         job_language = "English" if "english" in desc_lower else "Unknown"
 
-        # Build Job object
-        job = Job(
-            job_id=job_desc.get("job_id", "N/A"),
-            title=job_desc.get("job_title", "Unknown"),
-            company=job_desc.get("company", "Unknown"),
-            location=job_desc.get("location", "Unknown"),
-            posted_date=datetime.today().strftime("%Y-%m-%d"),
-            link=job_desc.get("link", ""),
-            processed=True,
-            source="External API",
-            job_description=job_desc.get("description", ""),
-            job_type=job_type,
-            skills=", ".join(job_desc.get("skills", [])) if job_desc.get("skills") else "General Skills",
-            job_link=job_desc.get("link", ""),
-            selected_count=0,
-            job_language=job_language,
-            job_title=job_desc.get("job_title", "Unknown")
-        )
+        # Build Job object safely
+        try:
+            job = Job(
+                job_id=job_desc.get("job_id", "N/A"),
+                title=job_desc.get("job_title", "Unknown"),
+                company=job_desc.get("company", "Unknown"),
+                location=job_desc.get("location", "Unknown"),
+                posted_date=datetime.today().strftime("%Y-%m-%d"),
+                link=job_desc.get("link", ""),
+                processed=True,
+                source="External API",
+                job_description=job_desc.get("description", ""),
+                job_type=job_type,
+                skills=", ".join(job_desc.get("skills", [])) if job_desc.get("skills") else "General Skills",
+                job_link=job_desc.get("link", ""),
+                selected_count=0,
+                job_language=job_language,
+                job_title=job_desc.get("job_title", "Unknown")
+            )
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid or missing job fields: {str(e)}")
 
         # Calculate match score
         match_score = calculate_match_score(req.user_details, job_desc)
@@ -390,6 +393,8 @@ async def external_job_api(req: ExternalJobRequest, _: None = Depends(verify_tok
             "match_score": match_score
         })
 
+    except HTTPException as http_err:
+        raise http_err
     except Exception as e:
-        logger.error(f"Error in external_job_api: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to process external job API")
+        logger.error(f"Unexpected error in external_job_api: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to process external job API: {str(e)}")

@@ -61,14 +61,16 @@ def worker():
 threading.Thread(target=worker, daemon=True).start()
 
 # ============================================================
-# ------------------- JOB PARSE (from job_api.py) ------------
+# ------------------- JOB PARSE ------------------------------
 # ============================================================
+
 class JobRequest(BaseModel):
     job_id: str
     company: str
     job_title: str
     link: str
     description: str
+
 
 class Job(BaseModel):
     job_id: str
@@ -87,7 +89,8 @@ class Job(BaseModel):
     job_language: str
     job_title: str
 
-@app.post("/m2/job/parse")
+
+@app.post("/m2/job/parse")   # ✅ fixed with leading slash
 async def parse_job(req: JobRequest, authorization: str = Header(...)):
     # Auth
     if not authorization.startswith("Bearer "):
@@ -140,9 +143,9 @@ async def parse_job(req: JobRequest, authorization: str = Header(...)):
         return JSONResponse(content=job.dict())
 
     except Exception as e:
-        print("🔥 ERROR:", str(e))
-        print(traceback.format_exc())
+        logger.error(f"🔥 ERROR in parse_job: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
+
 
 # ============================================================
 # ------------------- RESUME + COVERLETTER -------------------

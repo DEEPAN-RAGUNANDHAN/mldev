@@ -394,7 +394,10 @@ async def external_job_api(req: ExternalJobRequest, _: None = Depends(verify_tok
                 source="External API",
                 job_description=job_desc.get("description", ""),
                 job_type=job_type,
-                skills=", ".join(job_desc.get("skills", [])) if job_desc.get("skills") else "General Skills",
+                skills=", ".join(job_desc.get("skills", [])) if job_desc.get("skills") else  "Communication, Teamwork, Problem-solving, Adaptability, Time Management, "
+           "Leadership, Critical Thinking, Creativity, Collaboration, Interpersonal Skills, "
+           "Analytical Thinking, Decision Making, Project Management, Organizational Skills, "
+           "Attention to Detail, Python, SQL, Java, Git, Cloud Computing, Data Analysis",
                 job_link=job_desc.get("link", ""),
                 selected_count=0,
                 job_language=job_language,

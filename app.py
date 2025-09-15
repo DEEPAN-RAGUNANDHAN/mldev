@@ -229,28 +229,55 @@ async def generate_resume(request: Request, _: None = Depends(verify_token)):
     filtered_data = filter_skills(parsed_content, data['user_details'], data['job_description'])
     return JSONResponse(filtered_data)
 
-@app.post("/m2/extract-resume")
-async def parse_resume_endpoint(file: UploadFile = File(...), _: None = Depends(verify_token)):
-    resume_parser = OpenAIResumeParser()
-    allowed_extensions = {'.pdf', '.docx', '.txt'}
-    file_extension = Path(file.filename).suffix.lower()
-    if file_extension not in allowed_extensions:
-        raise HTTPException(status_code=400, detail=f"Unsupported file type: {file_extension}")
+# ... (existing imports and setup) ...
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
-        content = await file.read()
-        temp_file.write(content)
-        temp_file_path = temp_file.name
+@app.post("/m2/generate/resume")
+async def generate_resume(request: Request, _: None = Depends(verify_token)):
+    ip_data = await request.json()
+    data = process_data(ip_data)
+    
+    # Extract the requested language and level from the input data.
+    # Default to English and B1 if not provided.
+    cv_data = data.get('cv_data', {})
+    cv_lang = cv_data.get('language', 'english').lower()
+    cv_level = cv_data.get('level', 'B1')
+
+    prompt_content = build_resume_prompt(data)
+    result = {}
+
+    def task():
+        try:
+            result["content"] = generate_text(prompt_content, OPENAI_API_KEY)
+        except Exception as e:
+            result["error"] = str(e)
+
+    request_queue.put((task, []))
+    request_queue.join()
+    
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
 
     try:
-        result = resume_parser.parse_resume(temp_file_path)
-        os.unlink(temp_file_path)
-        if "error" in result:
-            raise HTTPException(status_code=422, detail=result["error"])
-        return JSONResponse(content={"data": result})
-    except Exception as e:
-        logger.error(f"Error parsing resume: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error processing resume: {str(e)}")
+        parsed_content = json.loads(result["content"])
+    except json.JSONDecodeError:
+        return JSONResponse(status_code=500, content={"error": "Failed to parse AI response", "raw": result["content"]})
+
+    # Post-process the resume to filter skills. This step runs regardless of language.
+    filtered_data = filter_skills(parsed_content, data['user_details'], data['job_description'])
+
+    # If the requested language is German, translate the entire JSON object.
+    if cv_lang == "german":
+        try:
+            translation_prompt = translate_prompt(filtered_data, "German", cv_level)
+            translated_content = generate_text(translation_prompt, OPENAI_API_KEY)
+            translated_json = json.loads(translated_content)
+            return JSONResponse(translated_json)
+        except Exception as e:
+            logger.error(f"Failed to translate resume to German: {str(e)}")
+            # Return the original English version as a fallback
+            return JSONResponse(filtered_data)
+            
+    return JSONResponse(filtered_data)
 
 @app.post("/m2/generate/job-research")
 async def generate_guide_endpoint(request: Request, _: None = Depends(verify_token)):

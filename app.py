@@ -180,7 +180,6 @@ async def generate_coverletter(request: Request, _: None = Depends(verify_token)
 
     # ✅ tell prompt builder to generate directly in that language
     prompt_content = build_cover_letter_prompt(data, language=cl_lang, level=cl_level)
-
     result = {}
 
     def task():

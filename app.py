@@ -173,7 +173,14 @@ def home():
 @app.post("/m2/generate/coverletter")
 async def generate_coverletter(request: Request, _: None = Depends(verify_token)):
     data = await request.json()
-    prompt_content = build_cover_letter_prompt(data)
+
+    # ✅ get language & level from request
+    cl_lang = data.get("cl_data", {}).get("language", "english").lower()
+    cl_level = data.get("cl_data", {}).get("level", "B1")
+
+    # ✅ tell prompt builder to generate directly in that language
+    prompt_content = build_cover_letter_prompt(data, language=cl_lang, level=cl_level)
+
     result = {}
 
     def task():
@@ -192,23 +199,9 @@ async def generate_coverletter(request: Request, _: None = Depends(verify_token)
     data["paragraphs"] = paragraphs
     final_data = format_data(data)
 
-    # Translation if needed
-    if data["cl_data"]["language"].lower() != "english":
-        level = data["cl_data"].get("level", "B1")
-        prompt = translate_prompt(final_data, data["cl_data"]["language"], level)
-        def task():
-            try:
-                result["content"] = generate_text(prompt, OPENAI_API_KEY)
-            except Exception as e:
-                result["error"] = str(e)
-        request_queue.put((task, []))
-        request_queue.join()
-        try:
-            final_data = json.loads(result["content"])
-        except:
-            return JSONResponse(status_code=500, content={"error": "Translation failed", "raw": result["content"]})
-
+    # ✅ remove translation step, because generation already in correct language
     return JSONResponse(final_data)
+
 
 @app.post("/m2/generate/resume")
 async def generate_resume(request: Request, _: None = Depends(verify_token)):

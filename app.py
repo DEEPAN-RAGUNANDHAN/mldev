@@ -371,7 +371,7 @@ async def external_job_api(req: ExternalJobRequest, _: None = Depends(verify_tok
         else:
             job_type = "Remote"
 
-        # Detect language
+        
         job_language = "English" if "english" in desc_lower else "English"
 
         # Build Job object safely

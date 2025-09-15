@@ -229,7 +229,7 @@ async def generate_resume(request: Request, _: None = Depends(verify_token)):
     filtered_data = filter_skills(parsed_content, data['user_details'], data['job_description'])
     return JSONResponse(filtered_data)
 
-# ... (existing imports and setup) ...
+# ... (existing imports and setup)
 
 @app.post("/m2/generate/resume")
 async def generate_resume(request: Request, _: None = Depends(verify_token)):
@@ -240,7 +240,7 @@ async def generate_resume(request: Request, _: None = Depends(verify_token)):
     # Default to English and B1 if not provided.
     cv_data = data.get('cv_data', {})
     cv_lang = cv_data.get('language', 'english').lower()
-    cv_level = cv_data.get('level', 'B1')
+    cv_level = cv_data.get('level', 'A1')
 
     prompt_content = build_resume_prompt(data)
     result = {}

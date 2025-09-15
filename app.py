@@ -315,6 +315,7 @@ async def generate_guide_endpoint(request: Request, _: None = Depends(verify_tok
 # ============================================================
 
 def calculate_match_score(user_details, job_description):
+
     try:
         # Validate user fields (but default missing ones to empty list instead of raising)
         required_user_fields = ["skills", "tools", "experience_summary", "education"]

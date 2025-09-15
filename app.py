@@ -433,8 +433,7 @@ async def external_job_api(req: ExternalJobRequest, _: None = Depends(verify_tok
             "job": job.dict(),
             "match_score": match_score
         })
-    
-    
+
     except HTTPException as http_err:
         raise http_err
     except Exception as e:

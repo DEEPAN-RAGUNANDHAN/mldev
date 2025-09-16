@@ -1,4 +1,5 @@
 def format_data(data):
+    user = data.get("user_details", {})
     output_data = {
         "name": data["user_details"]["name"],
         "title": data["user_details"]["designation"],

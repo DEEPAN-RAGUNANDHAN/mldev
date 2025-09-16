@@ -37,6 +37,7 @@ def change_json(raw_data):
         }
     }
 
+
     print(json.dumps(processed_data, indent=2))
 
     return processed_data

@@ -97,7 +97,7 @@ class Job(BaseModel):
     job_title: str
 
 
-@app.post("/m2/job/parse")   # ✅ fixed endpoint
+@app.post("/m2/job/parse")   
 async def parse_job(req: JobRequest, authorization: str = Header(...)):
     # Auth
     if not authorization.startswith("Bearer "):

@@ -64,6 +64,10 @@ threading.Thread(target=worker, daemon=True).start()
 # ------------------- JOB PARSE ------------------------------
 # ============================================================
 
+@app.get("/")
+def home():
+    return {"message": "MLDev Unified API is running!"}
+
 from typing import Union, List
 from fastapi import Header, HTTPException
 from fastapi.responses import JSONResponse
@@ -163,20 +167,15 @@ async def parse_job(req: JobRequest, authorization: str = Header(...)):
 # ------------------- RESUME + COVERLETTER -------------------
 # ============================================================
 
-@app.get("/")
-def home():
-    return {"message": "MLDev Unified API is running!"}
 
 @app.post("/m2/generate/coverletter")
-async def generate_coverletter(request: Request, _: None = Depends(verify_token)):
+async def generate_coverletter(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    _: None = Depends(verify_token)
+):
     data = await request.json()
-
-    # ✅ get language & level from request
-    cl_lang = data.get("cl_data", {}).get("language", "english").lower()
-    cl_level = data.get("cl_data", {}).get("level", "B1")
-
-    # ✅ tell prompt builder to generate directly in that language
-    prompt_content = build_cover_letter_prompt(data, language=cl_lang, level=cl_level)
+    prompt_content = build_cover_letter_prompt(data)
     result = {}
 
     def task():
@@ -194,8 +193,29 @@ async def generate_coverletter(request: Request, _: None = Depends(verify_token)
     paragraphs = result["content"].split("\n\n")
     data["paragraphs"] = paragraphs
     final_data = format_data(data)
+    if data["cl_data"]["language"].lower()!="english":
+        level = data["cl_data"].get("level", "B1")
+        prompt = translate_prompt(final_data, data["cl_data"]["language"], level)
+        def task():
+            try:
+                result["content"] = generate_text(prompt, OPENAI_API_KEY)
+            except Exception as e:
+                result["error"] = str(e)
 
-    # ✅ remove translation step, because generation already in correct language
+        request_queue.put((task, []))
+        request_queue.join()
+
+        if "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
+        
+        try:
+            final_data = json.loads(result["content"])
+        except json.JSONDecodeError:
+            return JSONResponse(status_code=500, content={
+                "error": "Failed to parse response as JSON",
+                "raw": result["content"]
+            })
+
     return JSONResponse(final_data)
 
 
@@ -248,36 +268,55 @@ async def generate_resume(request: Request, _: None = Depends(verify_token)):
     return JSONResponse(filtered_data)
 
 @app.post("/m2/generate/job-research")
-async def generate_guide_endpoint(request: Request, _: None = Depends(verify_token)):
+async def generate_guide_endpoint(request: Request):
+    # if not request.company or not request.job_title or not request.candidate_profile or not request.job_description:
+    #     raise HTTPException(status_code=400, detail="Missing required fields")
+
     data = await request.json()
+
     required_fields = ["company", "job_title", "candidate_profile", "job_description"]
     if not all(data.get(field) for field in required_fields):
         raise HTTPException(status_code=400, detail="Missing required fields")
+    
+    # job_link1 = request.job_link  # <- passed in request
+    # job_link2 = request.job_description["link"]
 
-    job_link1 = data.get("job_link")
+    job_link1 = data.get("job_link")  # passed directly
     job_link2 = data["job_description"].get("link") if isinstance(data["job_description"], dict) else None
-    company, job_title, candidate_profile, job_description = (
-        data["company"], data["job_title"], data["candidate_profile"], data["job_description"]
-    )
 
-    web_info = ""
-    if job_link1:
-        web_info += extract_page_text(job_link1)
-    if job_link2:
-        web_info += extract_page_text(job_link2)
-    if not web_info:
-        web_info = google_search(f"{company} {job_title}")
+    company = data["company"]
+    job_title = data["job_title"]
+    candidate_profile = data["candidate_profile"]
+    job_description = data["job_description"]
+    if job_link1 or job_link2:
+        web_info = ""
+        if job_link1:
+            web_info = extract_page_text(job_link1)
+        if job_link2:
+            web_info = web_info + extract_page_text(job_link2)
+    else:
+        query = f"{company} {job_title}"
+        web_info = google_search(query)
 
+    # query = f"{request.company} {request.job_title}"
+    # web_info = google_search(query)
     summarized_text = summarize_text(web_info)
+    logger.info(f"Summary: {summarized_text}")
+    #return summarized_text
+
+    #profile_str = pprint.pformat(request.candidate_profile, indent=2)
+
     guide = generate_guide(company, job_title, candidate_profile, job_description, summarized_text)
+    logger.info(f"GUIDE {guide}")
 
     try:
-        json_guide = json.loads(guide)
+        json_guide = json.loads(guide)  # Ensure it's valid JSON
     except Exception:
         json_guide = fix_json(guide)
+        logger.info("Error")
 
-    final_output = change_json(json_guide)
-    return JSONResponse(content=jsonable_encoder(final_output))
+    logger.info(f"\n\n{json_guide}")
+
 # ============================================================
 # ------------------- COVER LETTER MATCH SCORE ---------------
 # ============================================================

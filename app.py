@@ -124,17 +124,15 @@ async def parse_job(req: JobRequest, authorization: str = Header(...)):
         elif "intern" in desc_lower:
             job_type = "Internship"
         else:
-            job_type = "Other"
+            job_type = "Remote"
 
         # Detect skills
         skills_detected = []
         for skill in ["python", "sql", "java", "c++", "javascript", "cloud", "machine learning"]:
             if skill in desc_lower:
                 skills_detected.append(skill.capitalize())
-        skills = ", ".join(skills_detected) if skills_detected else "General Skills"
-
-        # Detect language
-        job_language = "English" if "english" in desc_lower else "Unknown"
+        skills = ", ".join(skills_detected) if skills_detected else "Communication, Teamwork, Problem-solving, Adaptability, Time Management, Leadership, Critical Thinking, Creativity, Collaboration, Interpersonal Skills, ""Analytical Thinking, Decision Making, Project Management, Organizational Skills, Attention to Detail"        # Detect language
+        job_language = "English" if "english" in desc_lower else "English"
 
         # Build Response
         job = Job(
@@ -159,6 +157,7 @@ async def parse_job(req: JobRequest, authorization: str = Header(...)):
     except Exception as e:
         logger.error(f"🔥 ERROR in parse_job: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
+
 
 # ============================================================
 # ------------------- RESUME + COVERLETTER -------------------

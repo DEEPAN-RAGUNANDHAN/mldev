@@ -317,6 +317,9 @@ async def generate_guide_endpoint(request: Request):
 
     logger.info(f"\n\n{json_guide}")
 
+    final_output = change_json(json_guide)
+
+    return JSONResponse(content=jsonable_encoder(final_output))
 # ============================================================
 # ------------------- COVER LETTER MATCH SCORE ---------------
 # ============================================================

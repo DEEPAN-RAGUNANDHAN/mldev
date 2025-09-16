@@ -160,17 +160,6 @@ async def parse_job(req: JobRequest, authorization: str = Header(...)):
         logger.error(f"🔥 ERROR in parse_job: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-
-
-
-
-
-
-
-
-
-
-
 # ============================================================
 # ------------------- RESUME + COVERLETTER -------------------
 # ============================================================
@@ -210,34 +199,6 @@ async def generate_coverletter(request: Request, _: None = Depends(verify_token)
     # ✅ remove translation step, because generation already in correct language
     return JSONResponse(final_data)
 
-
-@app.post("/m2/generate/resume")
-async def generate_resume(request: Request, _: None = Depends(verify_token)):
-    ip_data = await request.json()
-    data = process_data(ip_data)
-    prompt_content = build_resume_prompt(data)
-    result = {}
-
-    def task():
-        try:
-            result["content"] = generate_text(prompt_content, OPENAI_API_KEY)
-        except Exception as e:
-            result["error"] = str(e)
-
-    request_queue.put((task, []))
-    request_queue.join()
-    if "error" in result:
-        raise HTTPException(status_code=500, detail=result["error"])
-
-    try:
-        parsed_content = json.loads(result["content"])
-    except json.JSONDecodeError:
-        return JSONResponse(status_code=500, content={"error": "Failed to parse AI response", "raw": result["content"]})
-
-    filtered_data = filter_skills(parsed_content, data['user_details'], data['job_description'])
-    return JSONResponse(filtered_data)
-
-# ... (existing imports and setup)
 
 @app.post("/m2/generate/resume")
 async def generate_resume(request: Request, _: None = Depends(verify_token)):

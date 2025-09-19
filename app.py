@@ -462,7 +462,7 @@ async def parse_resume_endpoint(
     Returns: JSON with parsed resume data
     """
     #resume_parser = ResumeExtractor()
-    resume_parser = TogetherResumeParser()
+    resume_parser = OpenAIResumeParser()
     if not resume_parser:
         raise HTTPException(status_code=500, detail="Resume parser not initialized")
     

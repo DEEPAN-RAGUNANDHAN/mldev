@@ -1,18 +1,21 @@
 import os
 import json
 import re
-from typing import Dict, Any
+from typing import Dict, List, Any, Optional
 import PyPDF2
 import docx
 import logging
-from openai import OpenAI  # ✅ already replaced requests
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 class ResumeParserConfig:
+    """Configuration class to easily modify JSON output format"""
+    
     @staticmethod
     def get_json_schema():
+        """Define the required JSON output format - easily modifiable"""
         return {
             "first_name": "string",
             "second_name": "string",
@@ -22,50 +25,66 @@ class ResumeParserConfig:
             "country": "string",
             "state": "string",
             "city": "string",
-            "links": [{"type": "string", "url": "string"}],
-            "work_experience": [{
-                "job_title": "string",
-                "company_name": "string",
-                "location": "string",
-                "start_date": "string",
-                "end_date": "string",
-                "currentwork": "true/false",
-                "key_responsibilities": "string"
+            "links": [{
+                "type": "string",
+                "url": "string"
             }],
-            "education": [{
-                "institution": "string",
-                "city": "string",
-                "field_of_study": "string",
-                "start_date": "string",
-                "end_date": "string",
-                "current_study": "true/false",
-                "description": "string"
-            }],
-            "projects": [{
-                "project_name": "string",
-                "institution": "string",
-                "start_date": "string",
-                "end_date": "string",
-                "currentdo": "true/false",
-                "project_description": "string"
-            }],
-            "languages": [{"language": "string", "proficiency": "string"}],
-            "certifications": [{
-                "certificate_name": "string",
-                "platform": "string",
-                "start_date": "string",
-                "end_date": "string"
-            }],
+            "work_experience": [
+                {
+                    "job_title": "string",
+                    "company_name": "string",
+                    "location": "string",
+                    "start_date": "string",
+                    "end_date": "string",
+                    "currentwork": "true/false",
+                    "key_responsibilities": "string"
+                }
+            ],
+            "education": [
+                {
+                    "institution": "string",
+                    "city": "string",
+                    "field_of_study": "string",
+                    "start_date": "string",
+                    "end_date": "string",
+                    "current_study": "true/false",
+                    "description": "string"
+                }
+            ],
+            "projects": [
+                {
+                    "project_name": "string",
+                    "institution": "string",
+                    "start_date": "string",
+                    "end_date": "string",
+                    "currentdo": "true/false",
+                    "project_description": "string"
+                }
+            ],
+            "languages": [
+                {
+                    "language": "string",
+                    "proficiency": "string"
+                }
+            ],
+            "certifications": [
+                {
+                    "certificate_name": "string",
+                    "platform": "string",
+                    "start_date": "string",
+                    "end_date": "string"
+                }
+            ],
             "primary_title": "string",
             "secondary_title": "string",
             "tertiary_title": "string",
             "general_skills": ["string"],
             "jobSpecificSkills": ["string"]
         }
-
+    
     @staticmethod
     def get_job_titles_list():
-        """✅ pulled job_titles_list into a reusable function"""
+        """List of job titles for validation"""
         return [
             "Automation Engineer","Electrical Engineer","Control Systems Engineer","Electronics Engineer",
             "Automotive Engineer","Testing Engineer","Robotics Engineer","Industrial Engineer","HVAC Engineer",
@@ -88,6 +107,7 @@ class ResumeParserConfig:
 
     @staticmethod
     def get_parsing_prompt():
+        """Get the prompt for AI parsing - easily modifiable"""
         schema = ResumeParserConfig.get_json_schema()
         job_titles_list = ResumeParserConfig.get_job_titles_list()
 
@@ -160,6 +180,27 @@ class OpenAIResumeParser:
         response = re.sub(r"```json\s*", "", response)
         response = re.sub(r"```$", "", response)
         return response.strip()
+    
+    def validate_and_fix_json(self, json_str: str) -> Dict[str, Any]:
+        try:
+            return json.loads(json_str)
+        except json.JSONDecodeError as e:
+            logger.warning(f"JSON parse failed, attempting fixes: {e}")
+            fixes = [
+                (r',(\s*[}\]])', r'\1'), # Remove trailing commas
+                (r"'([^']*)':", r'"\1":'), # Replace single quotes with double quotes for keys
+                (r'\bNone\b', 'null'), # Replace None with null
+                (r'\bTrue\b', 'true'), # Replace True with true
+                (r'\bFalse\b', 'false') # Replace False with false
+            ]
+            fixed = json_str
+            for pat, repl in fixes:
+                fixed = re.sub(pat, repl, fixed)
+            try:
+                return json.loads(fixed)
+            except json.JSONDecodeError:
+                logger.error("Failed to fix JSON after multiple attempts.")
+                raise # Re-raise the error if it still fails
 
     def parse_resume(self, file_path: str) -> Dict[str, Any]:
         text = self.extract_text(file_path)
@@ -171,27 +212,20 @@ class OpenAIResumeParser:
             logger.warning("Text truncated")
 
         prompt = ResumeParserConfig.get_parsing_prompt() + text
+        job_titles_list = ResumeParserConfig.get_job_titles_list()
 
         try:
+            # First AI call to parse the resume
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0
+                temperature=0.0
             )
             ai_content = response.choices[0].message.content.strip()
             clean = self.clean_json_response(ai_content)
+            final_output = self.validate_and_fix_json(clean)
 
-            try:
-                parsed = json.loads(clean)
-            except Exception as e:
-                logger.error(f"JSON parsing failed, falling back to empty schema: {e}")
-                parsed = {}
-
-            schema = ResumeParserConfig.get_json_schema()
-            final_output = {key: parsed.get(key, default) for key, default in schema.items()}
-
-            # ✅ Correction step: enforce non-empty job titles & skills
-            job_titles_list = ResumeParserConfig.get_job_titles_list()
+            # Correction step to enforce non-empty job titles & skills
             if (not final_output.get("primary_title") or final_output["primary_title"] in ["", "string"] or
                 not final_output.get("secondary_title") or final_output["secondary_title"] in ["", "string"] or
                 not final_output.get("tertiary_title") or final_output["tertiary_title"] in ["", "string"] or
@@ -201,6 +235,9 @@ class OpenAIResumeParser:
                 correction_prompt = f"""
                 Resume Text:
                 {text}
+                
+                Previous AI response:
+                {final_output}
 
                 Please re-analyze and strictly ensure:
                 - primary_title, secondary_title, tertiary_title are chosen ONLY from this list: {job_titles_list}
@@ -217,7 +254,7 @@ class OpenAIResumeParser:
                 )
                 corrected = self.clean_json_response(correction_response.choices[0].message.content.strip())
                 try:
-                    corrected_json = json.loads(corrected)
+                    corrected_json = self.validate_and_fix_json(corrected)
                     final_output.update(corrected_json)
                 except Exception as e:
                     logger.error(f"Correction step failed: {e}")

@@ -268,9 +268,7 @@ async def generate_resume(request: Request, _: None = Depends(verify_token)):
     return JSONResponse(filtered_data)
 
 @app.post("/m2/generate/job-research")
-async def generate_guide_endpoint(
-    request: Request,
-    _: None = Depends(verify_token)):
+async def generate_guide_endpoint(request: Request):
     # if not request.company or not request.job_title or not request.candidate_profile or not request.job_description:
     #     raise HTTPException(status_code=400, detail="Missing required fields")
 
@@ -386,7 +384,7 @@ class ExternalJobRequest(BaseModel):
     cl_data: Optional[dict] = None
 
 
-@app.post("/m2/external/job-api")
+@app.post("/external/job-api")
 async def external_job_api(req: ExternalJobRequest, _: None = Depends(verify_token)):
     try:
         # Validate top-level fields

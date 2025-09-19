@@ -451,3 +451,89 @@ async def external_job_api(req: ExternalJobRequest, _: None = Depends(verify_tok
     except Exception as e:
         logger.error(f"Unexpected error in external_job_api: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to process external job API: {str(e)}")
+@app.post("/m2/extract-resume")
+async def parse_resume_endpoint(
+    file: UploadFile = File(...),
+    _: None = Depends(verify_token)):
+    """
+    Parse a resume file and extract structured information
+    
+    Accepts: PDF, DOCX, TXT files
+    Returns: JSON with parsed resume data
+    """
+    #resume_parser = ResumeExtractor()
+    resume_parser = TogetherResumeParser()
+    if not resume_parser:
+        raise HTTPException(status_code=500, detail="Resume parser not initialized")
+    
+    # Validate file type
+    allowed_extensions = {'.pdf', '.docx', '.txt'}
+    file_extension = Path(file.filename).suffix.lower()
+    
+    if file_extension not in allowed_extensions:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Unsupported file type: {file_extension}. Allowed types: {', '.join(allowed_extensions)}"
+        )
+    
+    # Validate file size (e.g., 10MB limit)
+    max_file_size = 10 * 1024 * 1024  # 10MB
+    if file.size and file.size > max_file_size:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Maximum size allowed: {max_file_size // (1024*1024)}MB"
+        )
+    
+    try:
+        # Create a temporary file to save the uploaded file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+            # Read and save the uploaded file
+            content = await file.read()
+            temp_file.write(content)
+            temp_file_path = temp_file.name
+        
+        logger.info(f"Processing file: {file.filename} (size: {len(content)} bytes)")
+        
+        # Parse the resume
+        #result = resume_parser.extract_resume_data(temp_file_path)
+        result = resume_parser.parse_resume(temp_file_path)
+        
+        # Clean up the temporary file
+        os.unlink(temp_file_path)
+        
+        # Check if parsing was successful
+        if "error" in result:
+            raise HTTPException(status_code=422, detail=result["error"])
+        
+        logger.info(f"Successfully parsed resume: {file.filename}")
+        
+        return JSONResponse(content={"data": result})
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        # Clean up temp file if it exists
+        try:
+            if 'temp_file_path' in locals():
+                os.unlink(temp_file_path)
+        except:
+            pass
+        
+        logger.error(f"Error parsing resume {file.filename}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing resume: {str(e)}"
+        )
+
+@app.exception_handler(413)
+async def request_entity_too_large_handler(request, exc):
+    """Handle file too large errors"""
+    return JSONResponse(
+        status_code=413,
+        content={
+            "success": False,
+            "error": "File too large",
+            "message": "The uploaded file exceeds the maximum allowed size of 10MB"
+        }
+    )

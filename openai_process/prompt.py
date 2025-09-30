@@ -3,24 +3,30 @@ import json
 import json
 
 def build_cover_letter_prompt(data):
-    user_keys = ["designation", "languages"]
-    job_keys = ["company", "link", "responsibilities"]
+    user_keys = ["designation", "languages"]  
+    # job_keys previously included "title", removed it ✅
+    job_keys = ["job_title", "company", "link", "responsibilities"]  # CHANGED: removed "title"
 
     required_data = {
         "user_details": {k: data["user_details"][k] for k in user_keys if k in data["user_details"]},
         "job_description": {k: data["job_description"][k] for k in job_keys if k in data["job_description"]}
+        # CHANGED: "title" no longer included in job_description
     }
 
     return f"""Generate a body within 150 words as 2 paragraphs for a formal cover letter. 
-Do NOT include the company name, the job title, or mention a specific position. 
-Don't include skills or technical details, projects, or past experience. 
-The content should be motivational and explain why the candidate is a strong fit in terms of values, culture, or location. 
-Avoid starting every sentence with 'I am'. 
-Return only plain text content (no markdown, no greetings, no file). 
+Don't include the salutation or greetings. 
+Don't include the skills or any technical details. 
+Don't include the heading as "Cover Letter". 
+Generate 2 motivational paragraphs for the body of the cover letter, without mentioning the company name. 
+Do not start all sentences with "I am". 
+The focus should be on why the candidate is a good pick regarding their values, location, and alignment with the role. 
+Do not include any projects or past experience content.
 
 Details:
 {required_data}
-"""
+
+Return only plain text for .docx generation (no file, no markdown)."""
+
 
 
 def build_resume_prompt(data):

@@ -4,28 +4,26 @@ import json
 
 def build_cover_letter_prompt(data):
     user_keys = ["designation", "languages"]  
-    # job_keys previously included "title", removed it ✅
-    job_keys = ["job_title", "company", "link", "responsibilities"]  # CHANGED: removed "title"
+    job_keys = ["job_title", "company", "link", "responsibilities"]  
 
     required_data = {
         "user_details": {k: data["user_details"][k] for k in user_keys if k in data["user_details"]},
         "job_description": {k: data["job_description"][k] for k in job_keys if k in data["job_description"]}
-        # CHANGED: "title" no longer included in job_description
     }
 
-    return f"""Generate a body within 150 words as 2 paragraphs for a formal cover letter. 
-Don't include the salutation or greetings. 
-Don't include the skills or any technical details. 
-Don't include the heading as "Cover Letter". 
-Generate 2 motivational paragraphs for the body of the cover letter, without mentioning the company name. 
-Do not start all sentences with "I am". 
-The focus should be on why the candidate is a good pick regarding their values, location, and alignment with the role. 
-Do not include any projects or past experience content.
+    return f"""Compose a truly uplifting and captivating body—within 150 words—structured as 2 evocative paragraphs suited for a formal cover letter. 
+Omit all greetings, headings, and company names. 
+Refrain from listing skills, technical details, past projects, or explicit prior experience. 
+Deliver an inspiring tone that radiates purpose, optimism, and genuine enthusiasm for the opportunity, positioning the candidate as an exceptional match in terms of values, culture, and growth ambitions. 
+Give each sentence unique energy—never begin all sentences the same way—and use vivid, persuasive language reflecting the candidate’s vision and alignment with the role’s responsibilities. 
+Highlight authentic motivation, a strong sense of contribution, and a future-focused spirit, making the reader want to learn more. 
+The essence should reflect character, drive, and readiness to embrace new challenges rather than just technical fit.
 
 Details:
 {required_data}
 
 Return only plain text for .docx generation (no file, no markdown)."""
+
 
 
 

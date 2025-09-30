@@ -451,7 +451,8 @@ async def external_job_api(req: ExternalJobRequest, _: None = Depends(verify_tok
     except Exception as e:
         logger.error(f"Unexpected error in external_job_api: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to process external job API: {str(e)}")
-
+#----------------------------------------------------------------------#
+#----------------------------------------------------------------------#
 @app.post("/m2/extract-resume")
 async def parse_resume_endpoint(
     file: UploadFile = File(...),

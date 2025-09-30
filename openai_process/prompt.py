@@ -1,18 +1,27 @@
 import json
 
+import json
+
 def build_cover_letter_prompt(data):
-    user_keys = ["designation", "languages"] #["designation", "tools", "skills", "education", "experience_summary", "past_projects", "certifications","languages"]
-    job_keys = ["job_title", "company", "link", "responsibilities"] #["job_title", "company", "link", "description", "responsibilities", "qualifications", "skills"]
+    user_keys = ["designation", "languages"]
+    job_keys = ["company", "link", "responsibilities"]
 
     required_data = {
-    "user_details": {k: data["user_details"][k] for k in user_keys if k in data["user_details"]},
-    "job_description": {k: data["job_description"][k] for k in job_keys if k in data["job_description"]}
+        "user_details": {k: data["user_details"][k] for k in user_keys if k in data["user_details"]},
+        "job_description": {k: data["job_description"][k] for k in job_keys if k in data["job_description"]}
     }
-    return f"""Generate a body within 150 words as 2 paragraphs for a formal cover letter. Don't include the salutation or greetings. Don't include the skills or any technical things. Don't include the heading as Cover Letter. Generate around 2 paragraphs for the body of the cover letter, but don't include the company name.
-Don't start all the sentences with I am. It must be a motivational letter explaining why the candidate is a good pick regarding their values, location, etc. Don't include any projects or past experience content.
+
+    return f"""Generate a body within 150 words as 2 paragraphs for a formal cover letter. 
+Do NOT include the company name, the job title, or mention a specific position. 
+Don't include skills or technical details, projects, or past experience. 
+The content should be motivational and explain why the candidate is a strong fit in terms of values, culture, or location. 
+Avoid starting every sentence with 'I am'. 
+Return only plain text content (no markdown, no greetings, no file). 
+
 Details:
 {required_data}
-Return only the formatted content as plain text for a .docx generation, but do NOT return any file or markdown."""
+"""
+
 
 def build_resume_prompt(data):
     user_keys = ["designation", "tools", "skills", "experience_summary", "past_projects"]

@@ -172,8 +172,7 @@ async def parse_job(req: JobRequest, authorization: str = Header(...)):
 async def generate_coverletter(
     request: Request,
     background_tasks: BackgroundTasks,
-    _: None = Depends(verify_token)
-):
+    _: None = Depends(verify_token)):
     data = await request.json()
     prompt_content = build_cover_letter_prompt(data)
     result = {}

@@ -162,7 +162,6 @@ async def parse_job(req: JobRequest, authorization: str = Header(...)):
         logger.error(f"🔥 ERROR in parse_job: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-
 # ============================================================
 # ------------------- RESUME + COVERLETTER -------------------
 # ============================================================
@@ -368,9 +367,6 @@ def calculate_match_score(user_details, job_description):
     except Exception as e:
         logger.error(f"Error in calculate_match_score: {str(e)}")
         return 50  # fallback safe score
-
-
-
 # ============================================================
 # ------------------- EXTERNAL JOB API -----------------------
 # ============================================================

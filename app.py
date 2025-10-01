@@ -233,6 +233,7 @@ async def generate_resume(request: Request, _: None = Depends(verify_token)):
     prompt_content = build_resume_prompt(data)
     result = {}
 
+
     def task():
         try:
             result["content"] = generate_text(prompt_content, OPENAI_API_KEY)

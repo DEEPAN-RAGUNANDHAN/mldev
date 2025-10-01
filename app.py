@@ -263,7 +263,6 @@ async def generate_resume(request: Request, _: None = Depends(verify_token)):
             return JSONResponse(translated_json)
         except Exception as e:
             logger.error(f"Failed to translate resume to German: {str(e)}")
-            # Return the original English version as a fallback
             return JSONResponse(filtered_data)
             
     return JSONResponse(filtered_data)

@@ -85,7 +85,6 @@ class JobRequest(BaseModel):
 # ---------- OUTPUT STRUCT ----------
 class Job(BaseModel):
     job_id: str
-    job_title: str
     company: str
     location: str
     posted_date: str

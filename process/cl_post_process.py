@@ -2,7 +2,7 @@ def format_data(data):
     user = data.get("user_details", {})
     output_data = {
         "name": data["user_details"]["name"],
-        "title": data["user_details"]["designation"],
+        "job_title": data["user_details"]["designation"],
         "mail": data["user_details"]["email"],
         "contact": data["user_details"]["contact"],
         "address": data["user_details"]["address"],

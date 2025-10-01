@@ -86,7 +86,7 @@ def format_data(ip_json, user_data):
     data = {
     "personal_info": {
         "name": user_data["name"],
-        "title": user_data["designation"],
+        "job_title": user_data["designation"],
         "mail": user_data["email"],
         "phone": user_data["contact"],
         "linkedin": user_data["linkedin"],

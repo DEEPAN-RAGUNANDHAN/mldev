@@ -19,44 +19,55 @@ Job Title:
 Return only plain text for .docx generation (no file, no markdown)."""
 
 def build_resume_prompt(data):
+    user_keys = ["designation", "tools", "skills", "experience_summary", "past_projects"]
     job_keys = ["job_title", "link", "description", "responsibilities", "qualifications", "skills"]
-    # Minimal user keys, only if required
-    user_keys = []
 
     required_data = {
-        "job_description": {k: data["job_description"][k] for k in job_keys if k in data["job_description"]},
-        "user_details": {k: data["user_details"][k] for k in user_keys if k in data.get("user_details", {})}
+    "user_details": {k: data["user_details"][k] for k in user_keys if k in data["user_details"]},
+    "job_description": {k: data["job_description"][k] for k in job_keys if k in data["job_description"]}
     }
+    return f"""Generate structured JSON content for a professional resume based on the following user details and job description. Do not include company names. Don't include the word Resume in it. Give terms instead of sentences for skills and arrange them based on job requirement. Don't include any skills that is not present in user data.
+Return past projects and experience summary data only if there is data for that in the input. Otherwise leave it blank.
+Avoid repeating verbs or phrases (e.g., "developed", "implemented", "responsible for") more than twice in total. Use a wide vocabulary — apply varied, precise action verbs and phrasing throughout. Each entry must use a **unique set of verbs** and sentence structure.
+Every experience description must contain **three quantitative metrics**, even if not provided in the input. Always include 3 different, realistic, inferred quantitative metrics in every description entry, even if the input lacks numbers. These must be embedded naturally in each bullet point.
 
-    return f"""
-You are an expert AI resume writer. Using the **following job description as primary guidance**, generate a structured JSON resume that fully aligns with the position and its requirements. 
-Only use user details if absolutely required to fill missing fields (e.g., name). Otherwise, base every section—summary, experience, projects, skills—on the job description and its key terms.
+For example:
+- “Led a team of 6 engineers and increased processing speed by 35%.”
+- “Managed budgets up to $150K across 3 projects in 12 months.”
+- “Reduced bug count by 42% through automation.”
+- “Increased accuracy by 10%.”
 
-
-
-### Rules:
-- Output must be **valid JSON only** (no markdown, no explanations).
-- Each experience and project entry: 3-4 bullet points, 70-80 words per bullet, each having 3 *unique* inferred or provided quantitative metrics.
-- Do not fabricate skills that are not in the job description. Skills must be prioritized and based on job requirements.
-- Do not include company names sourced from user details.
-- Summary must be at least 80 words, strongly aligned to the target job role ("{data['job_description'].get('job_title', '')}").
-- Past projects and experience summary: include only if there is explicit data in user details. Otherwise, return as an empty list.
-- Use varied action verbs and realistic, contextually appropriate metrics.
-- Use US English only.
-
-
-### Required JSON Structure:
+Use **different metrics** each time — avoid repeating the same phrasing or numbers across entries but include it for sure.
+Return a valid JSON with the following structure:
 {{
   "summary": "...",
-  "experience_summary": [...],
-  "past_projects": [...],
-  "skills": [...]
+  "experience_summary": [
+    {{
+      "company_name": "...",
+      "location": "...",
+      "position": "...",
+      "period": "...",
+      "description": ["...","..."]
+    }},
+    ...
+  ],
+  "past_projects": [
+    {{
+      "project_name": "..."
+      "company_name": "...",
+      "period": "...",
+      "skills_used": "..."
+      "description": ["...","..."]
+    }},
+    ...
+  ],
+  "skills": ["...", "..."]
 }}
 
-
-### Input Data:
-{required_data}
-"""
+The description for each experience_summary and project must be atleast 3-4 points with 70-80 words and the summary must be atleast 80 words relevant to the applying job. Ensure that each experience entry has a real company name (if provided in input), otherwise leave it blank. Make sure each field is properly filled based on the user input below. Do NOT return markdown or any additional explanation.
+Generate everything in US English.
+Details:
+{required_data}"""
 
 
 

@@ -6,6 +6,7 @@ from typing import List, Dict
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 # Load this once globally (or cache it if you want better performance)
 glove_model = api.load("glove-wiki-gigaword-50")  
 
@@ -85,7 +86,7 @@ def format_data(ip_json, user_data):
     data = {
     "personal_info": {
         "name": user_data["name"],
-        "title": user_data["job_title"],
+        "title": user_data["designation"],
         "mail": user_data["email"],
         "phone": user_data["contact"],
         "linkedin": user_data["linkedin"],

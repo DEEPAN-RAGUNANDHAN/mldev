@@ -214,19 +214,15 @@ async def generate_coverletter(
 
     return JSONResponse(final_data)
 @app.post("/m2/generate/resume")
-async def generate_resume(request: Request, _: None = Depends(verify_token)):
+async def generate_resume(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    _: None = Depends(verify_token)
+):
     ip_data = await request.json()
     data = process_data(ip_data)
-    
-    # Extract the requested language and level from the input data.
-    # Default to English and B1 if not provided.
-    cv_data = data.get('cv_data', {})
-    cv_lang = cv_data.get('language', 'english').lower()
-    cv_level = cv_data.get('level', 'A1')
-
     prompt_content = build_resume_prompt(data)
     result = {}
-
 
     def task():
         try:
@@ -236,29 +232,50 @@ async def generate_resume(request: Request, _: None = Depends(verify_token)):
 
     request_queue.put((task, []))
     request_queue.join()
-    
+
     if "error" in result:
         raise HTTPException(status_code=500, detail=result["error"])
 
     try:
         parsed_content = json.loads(result["content"])
     except json.JSONDecodeError:
-        return JSONResponse(status_code=500, content={"error": "Failed to parse AI response", "raw": result["content"]})
+        return JSONResponse(status_code=500, content={
+            "error": "Failed to parse response as JSON",
+            "raw": result["content"]
+        })
 
-    # Post-process the resume to filter skills. This step runs regardless of language.
+    # Filter skills from parsed_content
     filtered_data = filter_skills(parsed_content, data['user_details'], data['job_description'])
 
-    # If the requested language is German, translate the entire JSON object.
-    if cv_lang == "german":
+    if data["cv_data"]["language"].lower()!="english":
+        ip_level = data["cv_data"].get("level", "B1-B2")
+        if ip_level.lower() in ["basic", "beginner", "elementary", "a1", "a2"]:
+            level = "A1-A2"
+        elif ip_level.lower() in ["fluent", "proficient", "advanced", "native", "c1", "c2"]:
+            level = "C1-C2"
+        else:
+            level = "B1-B2"
+        prompt = translate_prompt(filtered_data, data["cv_data"]["language"], level)
+        def task():
+            try:
+                result["content"] = generate_text(prompt, OPENAI_API_KEY)
+            except Exception as e:
+                result["error"] = str(e)
+
+        request_queue.put((task, []))
+        request_queue.join()
+
+        if "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
+        
         try:
-            translation_prompt = translate_prompt(filtered_data, "German", cv_level)
-            translated_content = generate_text(translation_prompt, OPENAI_API_KEY)
-            translated_json = json.loads(translated_content)
-            return JSONResponse(translated_json)
-        except Exception as e:
-            logger.error(f"Failed to translate resume to German: {str(e)}")
-            return JSONResponse(filtered_data)
-            
+            filtered_data = json.loads(result["content"])
+        except json.JSONDecodeError:
+            return JSONResponse(status_code=500, content={
+                "error": "Failed to parse response as JSON",
+                "raw": result["content"]
+            })
+
     return JSONResponse(filtered_data)
 
 @app.post("/m2/generate/job-research")

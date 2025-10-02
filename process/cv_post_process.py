@@ -92,11 +92,15 @@ def format_data(ip_json, user_data):
     #     if isinstance(item["description"], str):
     #         text = item["description"]
     #         item["description"] = [sentence.strip() for sentence in text.split('.') if sentence.strip()]
-    
-    job_title = user_data.get("job_title", user_data.get("designation", "Professional"))
-    
-    # Generate profile summary dynamically based on job_title
-    profile_summary = f"Experienced {job_title} with a proven track record of delivering impactful results. Adept at leveraging relevant skills and expertise to meet the demands of the role and contribute meaningfully to organizational goals."
+
+    # Use job_title from user_data, injected from job_description
+    job_title = user_data.get("job_title", "Professional")
+
+    # Generate profile summary strictly based on job title
+    profile_summary = (
+        f"A highly skilled {job_title} with a strong focus on delivering results and driving success. "
+        "Expert in key competencies and capable of aligning efforts to meet organizational objectives."
+    )
 
     data = {
         "personal_info": {
@@ -109,7 +113,7 @@ def format_data(ip_json, user_data):
             "portfolio": user_data["portfolio"],
             "address": user_data["address"]
         },
-        "profile_summary": profile_summary,  # changed line: generate summary from job_title
+        "profile_summary": profile_summary,  # changed line: generate summary from job_title only
         "work_experience": ip_json.get("experience_summary", []),  # company_name, position, period, description
         "projects": ip_json.get("past_projects", []),
         "education": user_data.get("education", []),

@@ -4,14 +4,11 @@ import logging
 import re
 from typing import List, Dict
 
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
 # Load this once globally (or cache it if you want better performance)
 glove_model = api.load("glove-wiki-gigaword-50")  
-
 
 def semantic_similarity(word1, word2, model):
     """Returns cosine similarity between two words if they exist in the model."""
@@ -19,7 +16,6 @@ def semantic_similarity(word1, word2, model):
     if word1 in model and word2 in model:
         return model.similarity(word1, word2)
     return 0.0
-
 
 def filter_skills(output_json, user_data, job_data, min_fuzzy_similarity=50, min_semantic_similarity=0.5):
     """
@@ -78,32 +74,29 @@ def filter_skills(output_json, user_data, job_data, min_fuzzy_similarity=50, min
 
     # Inject job_title from job_description into user_data here before formatting
     if "job_title" in job_data:
-        user_data["job_title"] = job_data["job_title"]
+        user_data["job_title"] = job_data["job_title"]  # changed line injected job_title
 
     return format_data(output_json, user_data)
 
-
 def format_data(ip_json, user_data):
-    # for item in ip_json["experience_summary"]:
-    #     if isinstance(item["description"], str):
-    #         text = item["description"]
-    #         item["description"] = [sentence.strip() for sentence in text.split('.') if sentence.strip()]
-    # for item in ip_json["past_projects"]:
-    #     if isinstance(item["description"], str):
-    #         text = item["description"]
-    #         item["description"] = [sentence.strip() for sentence in text.split('.') if sentence.strip()]
+    # Derive the job title with fallback
+    job_title = user_data.get("job_title", user_data.get("designation", "Professional"))  # changed: prioritize job_title
+
+    # Compose a profile summary aligned to the job title
+    profile_summary = f"Experienced {job_title} with a proven track record of delivering impactful results. Adept at leveraging relevant skills and expertise to meet the demands of the role and contribute meaningfully to organizational goals."  # changed: override profile summary
+
     data = {
         "personal_info": {
             "name": user_data["name"],
             #"title": user_data["designation"],  # old
-            "title": user_data.get("job_title", user_data.get("designation", "")),  # changed line: prioritize job_title over designation
+            "title": job_title,  # changed line to use job_title
             "mail": user_data["email"],
             "phone": user_data["contact"],
             "linkedin": user_data["linkedin"],
             "portfolio": user_data["portfolio"],
             "address": user_data["address"]
         },
-        "profile_summary": ip_json.get("summary", ""),
+        "profile_summary": profile_summary,  # changed line override summary to align with job_title
         "work_experience": ip_json.get("experience_summary", []),  # company_name, position, period, description
         "projects": ip_json.get("past_projects", []),
         "education": user_data.get("education", []),
@@ -115,12 +108,9 @@ def format_data(ip_json, user_data):
     logger.info(final_data)
     return final_data
 
-
 def has_quantitative_data(text: str) -> bool:
     """Check if a string contains numeric or percentage-based data."""
-    # return bool(re.search(r'\d+[%$KkMm]|(?:\d+\s*(?:projects?|bugs?|users?|clients?|months?|years?|tasks?))', text, re.IGNORECASE))
     return bool(re.search(r'\d+', text))
-
 
 def choose_metric_by_keyword(text: str) -> str:
     """Choose a metric based on the presence of specific keywords."""
@@ -131,7 +121,6 @@ def choose_metric_by_keyword(text: str) -> str:
         # default fallback
         return "Increased accuracy by 15%."
 
-
 def inject_metrics(description_list: List[str]) -> List[str]:
     """Inject a quantitative metric if none exist in the description."""
     if not any(has_quantitative_data(desc) for desc in description_list):
@@ -139,7 +128,6 @@ def inject_metrics(description_list: List[str]) -> List[str]:
         metric = choose_metric_by_keyword(combined_text)
         description_list.append(metric)
     return description_list
-
 
 def process_resume_json(resume_data: Dict) -> Dict:
     """Process the resume JSON to ensure every description has quantitative data."""

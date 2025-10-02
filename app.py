@@ -213,9 +213,6 @@ async def generate_coverletter(
             })
 
     return JSONResponse(final_data)
-
-
-
 @app.post("/m2/generate/resume")
 async def generate_resume(request: Request, _: None = Depends(verify_token)):
     ip_data = await request.json()

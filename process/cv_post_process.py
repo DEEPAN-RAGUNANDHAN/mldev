@@ -74,7 +74,7 @@ def filter_skills(output_json, user_data, job_data, min_fuzzy_similarity=50, min
     output_json["skills"] = boosted_skills[:10]
     return format_data(output_json, user_data)
 
-def format_data(ip_json, user_data):
+def format_data(ip_json, user_data,job_description):
     # for item in ip_json["experience_summary"]:
     #     if isinstance(item["description"], str):
     #         text = item["description"]
@@ -86,7 +86,7 @@ def format_data(ip_json, user_data):
     data = {
     "personal_info": {
         "name": user_data["name"],
-        "title": user_data["designation"],
+        "title": job_description["job_title"],
         "mail": user_data["email"],
         "phone": user_data["contact"],
         "linkedin": user_data["linkedin"],

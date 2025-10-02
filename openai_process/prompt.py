@@ -18,9 +18,6 @@ Job Title:
 
 Return only plain text for .docx generation (no file, no markdown)."""
 
-
-
-
 def build_resume_prompt(data):
     user_keys = ["designation", "tools", "skills", "experience_summary", "past_projects"]
     job_keys = ["job_title", "link", "description", "responsibilities", "qualifications", "skills"]
@@ -77,6 +74,14 @@ Details:
 {required_data}"""
 
 
+def translate_prompt(data, target_lang, level):
+    return f"""
+Translate the following JSON into {target_lang}. The content must be in {level} level of the specified language.
+Only translate the values — do not change the keys or the JSON structure. 
+Return the translated content as valid JSON in the same format.
+
+{json.dumps(data, indent=2)}
+"""
 
 def job_research_prompt(company, job_title, profile,job_details, web_content):
     return f"""

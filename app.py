@@ -165,8 +165,6 @@ async def parse_job(req: JobRequest, authorization: str = Header(...)):
 # ============================================================
 # ------------------- RESUME + COVERLETTER -------------------
 # ============================================================
-
-
 @app.post("/m2/generate/coverletter")
 async def generate_coverletter(
     request: Request,

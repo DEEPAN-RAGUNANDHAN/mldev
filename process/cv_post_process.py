@@ -6,7 +6,6 @@ from typing import List, Dict
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 # Load this once globally (or cache it if you want better performance)
 glove_model = api.load("glove-wiki-gigaword-50")  
 

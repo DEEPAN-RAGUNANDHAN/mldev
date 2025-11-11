@@ -548,34 +548,39 @@ async def request_entity_too_large_handler(request, exc):
             "message": "The uploaded file exceeds the maximum allowed size of 10MB"
         }
     )
-# ==============================
-# TEXT REWRITE (REGENERATION) API
-# ==============================
 @app.post("/m2/generate/rewrite")
 async def rewrite_text(request: Request, _: None = Depends(verify_token)):
-    try:
-        payload = await request.json()
-        prompt_instruction = payload.get("prompt", "Rewrite this professionally.")
-        input_text = payload.get("input", "")
-        support_text = payload.get("support", "")
-        memory = payload.get("memory", "")
+    """
+    API to rewrite text in a professional tone with support context.
+    """
+    body = await request.json()
+    prompt = body.get("prompt", "")
+    text_input = body.get("input", "")
+    support = body.get("support", "")
+    memory = body.get("memory", "")
 
-        final_prompt = (
-            f"Instruction: {prompt_instruction}.\n"
-            f"Context: {support_text}.\n"
-            f"Memory Tag: {memory}.\n"
-            'Rewrite this input text in a professional tone under 20 words:\n'
-            f'"{input_text}"\n\n'
-            "Return only the rewritten sentence, no extra commentary."
-        )
+    if not text_input:
+        raise HTTPException(status_code=400, detail="Missing input text")
 
-        # Using asyncio.to_thread to run blocking generate_text function asynchronously
-        rewritten_text = await asyncio.to_thread(generate_text, final_prompt, OPENAI_API_KEY)
+    full_prompt = f"""{prompt}.
+Additional instruction: {support}.
+Context memory: {memory}.
+Rewrite the following text clearly, professionally, and concisely:
+"{text_input}"
+Return only the rewritten text as plain text."""
 
-        if not rewritten_text:
-            raise HTTPException(status_code=500, detail="Failed to generate rewritten text")
+    result = {}
 
-        return JSONResponse({"rewritten_text": rewritten_text.strip()})
+    def task():
+        try:
+            result["content"] = generate_text(full_prompt, OPENAI_API_KEY)
+        except Exception as e:
+            result["error"] = str(e)
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    request_queue.put((task, []))
+    request_queue.join()
+
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+
+    return JSONResponse({"rewritten_text": result["content"].strip()})

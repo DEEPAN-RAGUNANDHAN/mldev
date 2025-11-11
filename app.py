@@ -8,6 +8,7 @@ from pathlib import Path
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
 import threading
+import asyncio
 
 from fastapi import FastAPI, Request, HTTPException, BackgroundTasks, Header, Depends, File, UploadFile
 from fastapi.responses import JSONResponse
@@ -552,9 +553,6 @@ async def request_entity_too_large_handler(request, exc):
 # ==============================
 @app.post("/m2/generate/rewrite")
 async def rewrite_text(request: Request, _: None = Depends(verify_token)):
-    """
-    API to rewrite text professionally under specific constraints.
-    """
     try:
         payload = await request.json()
         prompt_instruction = payload.get("prompt", "Rewrite this professionally.")
@@ -562,25 +560,17 @@ async def rewrite_text(request: Request, _: None = Depends(verify_token)):
         support_text = payload.get("support", "")
         memory = payload.get("memory", "")
 
-        # Construct prompt for OpenAI model
-        final_prompt = f"""
-Instruction: {prompt_instruction}.
-Context: {support_text}.
-Memory Tag: {memory}.
-Rewrite this input text in a professional tone under 20 words:
-\"{input_text}\"
+        final_prompt = (
+            f"Instruction: {prompt_instruction}.\n"
+            f"Context: {support_text}.\n"
+            f"Memory Tag: {memory}.\n"
+            'Rewrite this input text in a professional tone under 20 words:\n'
+            f'"{input_text}"\n\n'
+            "Return only the rewritten sentence, no extra commentary."
+        )
 
-Return only the rewritten sentence, no extra commentary.
-"""
-
-        # Use asyncio to run blocking generate_text function without blocking event loop
-        import asyncio
-        loop = asyncio.get_event_loop()
-
-        try:
-            rewritten_text = await loop.run_in_executor(None, generate_text, final_prompt, OPENAI_API_KEY)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Text generation error: {str(e)}")
+        # Using asyncio.to_thread to run blocking generate_text function asynchronously
+        rewritten_text = await asyncio.to_thread(generate_text, final_prompt, OPENAI_API_KEY)
 
         if not rewritten_text:
             raise HTTPException(status_code=500, detail="Failed to generate rewritten text")

@@ -547,3 +547,47 @@ async def request_entity_too_large_handler(request, exc):
             "message": "The uploaded file exceeds the maximum allowed size of 10MB"
         }
     )
+# ==============================
+# TEXT REWRITE (REGENERATION) API
+# ==============================
+@app.post("/m2/generate/rewrite")
+async def rewrite_text(request: Request, _: None = Depends(verify_token)):
+    """
+    API to rewrite text professionally under specific constraints.
+    """
+    try:
+        payload = await request.json()
+        prompt_instruction = payload.get("prompt", "Rewrite this professionally.")
+        input_text = payload.get("input", "")
+        support_text = payload.get("support", "")
+        memory = payload.get("memory", "")
+
+        # Construct prompt for OpenAI model
+        final_prompt = f"""
+        Instruction: {prompt_instruction}.
+        Context: {support_text}.
+        Memory Tag: {memory}.
+        Rewrite this input text in a professional tone under 20 words:
+        "{input_text}"
+
+        Return only the rewritten sentence, no extra commentary.
+        """
+
+        # Run the text generation task
+        result = {}
+        def task():
+            try:
+                result["content"] = generate_text(final_prompt, OPENAI_API_KEY)
+            except Exception as e:
+                result["error"] = str(e)
+
+        request_queue.put((task, []))
+        request_queue.join()
+
+        if "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
+
+        return JSONResponse({"rewritten_text": result["content"].strip()})
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

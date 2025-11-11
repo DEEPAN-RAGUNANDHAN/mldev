@@ -564,30 +564,28 @@ async def rewrite_text(request: Request, _: None = Depends(verify_token)):
 
         # Construct prompt for OpenAI model
         final_prompt = f"""
-        Instruction: {prompt_instruction}.
-        Context: {support_text}.
-        Memory Tag: {memory}.
-        Rewrite this input text in a professional tone under 20 words:
-        "{input_text}"
+Instruction: {prompt_instruction}.
+Context: {support_text}.
+Memory Tag: {memory}.
+Rewrite this input text in a professional tone under 20 words:
+\"{input_text}\"
 
-        Return only the rewritten sentence, no extra commentary.
-        """
+Return only the rewritten sentence, no extra commentary.
+"""
 
-        # Run the text generation task
-        result = {}
-        def task():
-            try:
-                result["content"] = generate_text(final_prompt, OPENAI_API_KEY)
-            except Exception as e:
-                result["error"] = str(e)
+        # Use asyncio to run blocking generate_text function without blocking event loop
+        import asyncio
+        loop = asyncio.get_event_loop()
 
-        request_queue.put((task, []))
-        request_queue.join()
+        try:
+            rewritten_text = await loop.run_in_executor(None, generate_text, final_prompt, OPENAI_API_KEY)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Text generation error: {str(e)}")
 
-        if "error" in result:
-            raise HTTPException(status_code=500, detail=result["error"])
+        if not rewritten_text:
+            raise HTTPException(status_code=500, detail="Failed to generate rewritten text")
 
-        return JSONResponse({"rewritten_text": result["content"].strip()})
-    
+        return JSONResponse({"rewritten_text": rewritten_text.strip()})
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
